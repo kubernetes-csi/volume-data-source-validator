@@ -21,11 +21,7 @@ The expected repository layout is:
    Dockerfile in the root when only building a single command
  - `Makefile` - includes `release-tools/build.make` and sets
    configuration variables
- - `.prow.sh` script which imports `release-tools/prow.sh`
-   and may contain further customization
- - `.cloudbuild.sh` and `cloudbuild.yaml` as symlinks to
-   the corresponding files in `release-tools` or (if necessary)
-   as custom files
+ - `.travis.yml` - a symlink to `release-tools/.travis.yml`
 
 To create a release, tag a certain revision with a name that
 starts with `v`, for example `v1.0.0`, then `make push`
