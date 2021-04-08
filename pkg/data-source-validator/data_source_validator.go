@@ -20,14 +20,11 @@ import (
 	"fmt"
 	"time"
 
-	volumesnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/client/v3/apis/volumesnapshot/v1beta1"
-	clientset "github.com/kubernetes-csi/volume-data-source-validator/client/clientset/versioned"
-	popinformers "github.com/kubernetes-csi/volume-data-source-validator/client/informers/externalversions/volumepopulator/v1alpha1"
-	poplisters "github.com/kubernetes-csi/volume-data-source-validator/client/listers/volumepopulator/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -38,6 +35,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+
+	volumesnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/client/v3/apis/volumesnapshot/v1beta1"
+	clientset "github.com/kubernetes-csi/volume-data-source-validator/client/clientset/versioned"
+	popinformers "github.com/kubernetes-csi/volume-data-source-validator/client/informers/externalversions/volumepopulator/v1alpha1"
+	poplisters "github.com/kubernetes-csi/volume-data-source-validator/client/listers/volumepopulator/v1alpha1"
 )
 
 type populatorController struct {
@@ -163,7 +165,11 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 		return nil
 	}
 	pvc, err := ctrl.pvcLister.PersistentVolumeClaims(namespace).Get(name)
-	if err != nil && !errors.IsNotFound(err) {
+	if nil != err {
+		if errors.IsNotFound(err) {
+			utilruntime.HandleError(fmt.Errorf("pvc '%s' in work queue no longer exists", key))
+			return nil
+		}
 		klog.V(2).Infof("error getting pvc %q from informer: %v", key, err)
 		return err
 	}
