@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2019 The Kubernetes Authors.
+# Copyright 2021 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#set -o errexit
+set -o errexit
 set -o nounset
 set -o pipefail
 
@@ -28,7 +28,7 @@ then
   TMP_DIR=$(mktemp -d);
   cd $TMP_DIR;
   go mod init tmp;
-  go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0;
+  go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0;
   rm -rf $TMP_DIR;
   CONTROLLER_GEN=$(which controller-gen)
 fi
@@ -41,5 +41,5 @@ fi
 
 $CONTROLLER_GEN crd:crdVersions=v1,trivialVersions=true paths=${SCRIPT_ROOT}/apis/volumepopulator/v1alpha1
 
-# To use your own boilerplate text use:
-#   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
+$CONTROLLER_GEN object:headerFile=./hack/boilerplate.go.txt,year=$(date +%Y) \
+  paths=${SCRIPT_ROOT}/apis/volumepopulator/v1alpha1/types.go

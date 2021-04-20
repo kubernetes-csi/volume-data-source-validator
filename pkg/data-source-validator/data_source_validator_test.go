@@ -1,5 +1,5 @@
 /*
-Copyright 2020 The Kubernetes Authors.
+Copyright 2021 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,38 +20,49 @@ import (
 	"errors"
 	"testing"
 
-	volumesnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/client/v3/apis/volumesnapshot/v1beta1"
-	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/dynamic/dynamiclister"
+	"k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/tools/cache"
+
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
 )
 
-type fakeVolumeLister struct {
-	populators []*popv1alpha1.VolumePopulator
-}
-
-func (l *fakeVolumeLister) List(labels.Selector) ([]*popv1alpha1.VolumePopulator, error) {
-	return l.populators, nil
-}
-
-func (l *fakeVolumeLister) Get(name string) (*popv1alpha1.VolumePopulator, error) {
-	for _, populator := range l.populators {
-		if populator.Name == name {
-			return populator, nil
-		}
+func makeFakeLister(populators ...*popv1alpha1.VolumePopulator) dynamiclister.Lister {
+	scheme := runtime.NewScheme()
+	popv1alpha1.AddToScheme(scheme)
+	objects := make([]runtime.Object, len(populators))
+	for i := range populators {
+		objects[i] = populators[i]
 	}
-	return nil, errors.New("not found")
+	client := fake.NewSimpleDynamicClient(scheme, objects...)
+	factory := dynamicinformer.NewDynamicSharedInformerFactory(client, 0)
+	informer := factory.ForResource(PopulatorResource).Informer()
+	lister := dynamiclister.New(informer.GetIndexer(), PopulatorResource)
+	stopCh := make(chan struct{})
+	factory.Start(stopCh)
+	cache.WaitForCacheSync(stopCh, informer.HasSynced)
+	return lister
 }
 
 type brokenVolumeLister struct {
 }
 
-func (l *brokenVolumeLister) List(labels.Selector) ([]*popv1alpha1.VolumePopulator, error) {
+func (*brokenVolumeLister) List(labels.Selector) ([]*unstructured.Unstructured, error) {
 	return nil, errors.New("failed")
 }
 
-func (l *brokenVolumeLister) Get(name string) (*popv1alpha1.VolumePopulator, error) {
+func (*brokenVolumeLister) Get(string) (*unstructured.Unstructured, error) {
 	return nil, errors.New("failed")
+}
+
+func (*brokenVolumeLister) Namespace(string) dynamiclister.NamespaceLister {
+	return nil
 }
 
 func TestValidateGroupKind(t *testing.T) {
@@ -70,9 +81,7 @@ func TestValidateGroupKind(t *testing.T) {
 			Kind:  "Valid",
 		},
 	}
-	ctrl.popLister = &fakeVolumeLister{
-		populators: []*popv1alpha1.VolumePopulator{&populator},
-	}
+	ctrl.popLister = makeFakeLister(&populator)
 
 	testCases := []struct {
 		name  string
@@ -80,7 +89,7 @@ func TestValidateGroupKind(t *testing.T) {
 		valid bool
 	}{
 		{
-			name: "Create: PVC data source",
+			name: "Create PVC data source",
 			gk: metav1.GroupKind{
 				Group: "",
 				Kind:  "PersistentVolumeClaim",
@@ -88,15 +97,15 @@ func TestValidateGroupKind(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Create: snapshot data source",
+			name: "Create snapshot data source",
 			gk: metav1.GroupKind{
-				Group: volumesnapshotv1beta1.GroupName,
+				Group: volumesnapshotv1.GroupName,
 				Kind:  "VolumeSnapshot",
 			},
 			valid: true,
 		},
 		{
-			name: "Create: valid data source",
+			name: "Create valid data source",
 			gk: metav1.GroupKind{
 				Group: "valid.storage.k8s.io",
 				Kind:  "Valid",
@@ -104,7 +113,7 @@ func TestValidateGroupKind(t *testing.T) {
 			valid: true,
 		},
 		{
-			name: "Create: invalid data source",
+			name: "Create invalid data source",
 			gk: metav1.GroupKind{
 				Group: "invalid.storage.k8s.io",
 				Kind:  "Invalid",

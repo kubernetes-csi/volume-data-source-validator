@@ -10,7 +10,7 @@ kind: StatefulSet
 apiVersion: apps/v1
 metadata:
   name: data-source-validator
-  namespace: default # TODO: replace with the namespace you want for your controller, e.g. kube-system
+  namespace: kube-system
 spec:
   serviceName: data-source-validator
   replicas: 1
