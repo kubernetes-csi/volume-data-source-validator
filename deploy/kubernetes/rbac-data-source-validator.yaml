@@ -9,7 +9,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: data-source-validator
-  namespace: default # replace with non-default namespace name
+  namespace: kube-system
 
 ---
 kind: ClusterRole
@@ -35,7 +35,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: data-source-validator
-    namespace: default # replace with non-default namespace name
+    namespace: kube-system
 roleRef:
   kind: ClusterRole
   name: data-source-validator

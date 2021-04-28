@@ -24,8 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamiclister"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,19 +39,17 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	volumesnapshotv1beta1 "github.com/kubernetes-csi/external-snapshotter/client/v3/apis/volumesnapshot/v1beta1"
-	clientset "github.com/kubernetes-csi/volume-data-source-validator/client/clientset/versioned"
-	popinformers "github.com/kubernetes-csi/volume-data-source-validator/client/informers/externalversions/volumepopulator/v1alpha1"
-	poplisters "github.com/kubernetes-csi/volume-data-source-validator/client/listers/volumepopulator/v1alpha1"
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
 )
 
 type populatorController struct {
-	clientset     clientset.Interface
+	dynClient     dynamic.Interface
 	client        kubernetes.Interface
 	eventRecorder record.EventRecorder
 	queue         workqueue.RateLimitingInterface
 
-	popLister       poplisters.VolumePopulatorLister
+	popLister       dynamiclister.Lister
 	popListerSynced cache.InformerSynced
 	pvcLister       corelisters.PersistentVolumeClaimLister
 	pvcListerSynced cache.InformerSynced
@@ -58,13 +59,15 @@ type populatorController struct {
 
 var (
 	pvcGK            = metav1.GroupKind{Group: v1.GroupName, Kind: "PersistentVolumeClaim"}
-	volumeSnapshotGK = metav1.GroupKind{Group: volumesnapshotv1beta1.GroupName, Kind: "VolumeSnapshot"}
+	volumeSnapshotGK = metav1.GroupKind{Group: volumesnapshotv1.GroupName, Kind: "VolumeSnapshot"}
+
+	PopulatorResource = popv1alpha1.SchemeGroupVersion.WithResource("volumepopulators")
 )
 
 func NewDataSourceValidator(
-	clientset clientset.Interface,
+	dynClient dynamic.Interface,
 	client kubernetes.Interface,
-	volumePopulatorInformer popinformers.VolumePopulatorInformer,
+	volumePopulatorInformer cache.SharedIndexInformer,
 	pvcInformer coreinformers.PersistentVolumeClaimInformer,
 	resyncPeriod time.Duration,
 ) *populatorController {
@@ -75,7 +78,7 @@ func NewDataSourceValidator(
 	eventRecorder = broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: fmt.Sprintf("data-source-validator")})
 
 	ctrl := &populatorController{
-		clientset:     clientset,
+		dynClient:     dynClient,
 		client:        client,
 		eventRecorder: eventRecorder,
 		resyncPeriod:  resyncPeriod,
@@ -93,8 +96,8 @@ func NewDataSourceValidator(
 	ctrl.pvcLister = pvcInformer.Lister()
 	ctrl.pvcListerSynced = pvcInformer.Informer().HasSynced
 
-	ctrl.popLister = volumePopulatorInformer.Lister()
-	ctrl.popListerSynced = volumePopulatorInformer.Informer().HasSynced
+	ctrl.popLister = dynamiclister.New(volumePopulatorInformer.GetIndexer(), PopulatorResource)
+	ctrl.popListerSynced = volumePopulatorInformer.HasSynced
 
 	return ctrl
 }
@@ -179,7 +182,7 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 		// No data source
 		return nil
 	}
-	if nil == dataSource.APIGroup {
+	if nil == dataSource.APIGroup || "" == *dataSource.APIGroup {
 		// Data source is a core object
 		return nil
 	}
@@ -211,12 +214,17 @@ func (ctrl *populatorController) validateGroupKind(gk metav1.GroupKind) (bool, e
 		klog.V(4).Infof("Allowing %s as a special case", gk.String())
 		return true, nil
 	}
-	populators, err := ctrl.popLister.List(labels.Everything())
+	unstPopulators, err := ctrl.popLister.List(labels.Everything())
 	if nil != err {
 		klog.Errorf("Failed to list populators: %v", err)
 		return false, err
 	}
-	for _, populator := range populators {
+	for _, unstPopulator := range unstPopulators {
+		var populator popv1alpha1.VolumePopulator
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstPopulator.UnstructuredContent(), &populator)
+		if nil != err {
+			return false, err
+		}
 		if populator.SourceKind == gk {
 			klog.V(4).Infof("Allowing %s due to %s populator", gk.String(), populator.Name)
 			return true, nil

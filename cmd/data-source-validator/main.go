@@ -24,18 +24,18 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/kubernetes-csi/csi-lib-utils/leaderelection"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	coreinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	klog "k8s.io/klog/v2"
+	"k8s.io/klog/v2"
 
-	clientset "github.com/kubernetes-csi/volume-data-source-validator/client/clientset/versioned"
-	popscheme "github.com/kubernetes-csi/volume-data-source-validator/client/clientset/versioned/scheme"
-	informers "github.com/kubernetes-csi/volume-data-source-validator/client/informers/externalversions"
-	controller "github.com/kubernetes-csi/volume-data-source-validator/pkg/data-source-validator"
+	"github.com/kubernetes-csi/csi-lib-utils/leaderelection"
+	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
+	popcontroller "github.com/kubernetes-csi/volume-data-source-validator/pkg/data-source-validator"
 )
 
 // Command line flags
@@ -77,24 +77,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	popClient, err := clientset.NewForConfig(config)
-	if err != nil {
-		klog.Errorf("Error building populator clientset: %s", err.Error())
-		os.Exit(1)
+	dynClient, err := dynamic.NewForConfig(config)
+	if nil != err {
+		klog.Fatalf("Failed to create dynamic client: %v", err)
 	}
 
-	factory := informers.NewSharedInformerFactory(popClient, *resyncPeriod)
 	coreFactory := coreinformers.NewSharedInformerFactory(kubeClient, *resyncPeriod)
+	dynFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, *resyncPeriod)
 
-	// Add Populator types to the default Kubernetes so events can be logged for them
-	scheme.AddToScheme(popscheme.Scheme)
+	popv1alpha1.AddToScheme(scheme.Scheme)
 
 	klog.V(2).Infof("Start NewDataSourceValidator with kubeconfig [%s] resyncPeriod [%+v]", *kubeconfig, *resyncPeriod)
 
-	ctrl := controller.NewDataSourceValidator(
-		popClient,
+	ctrl := popcontroller.NewDataSourceValidator(
+		dynClient,
 		kubeClient,
-		factory.Populator().V1alpha1().VolumePopulators(),
+		dynFactory.ForResource(popcontroller.PopulatorResource).Informer(),
 		coreFactory.Core().V1().PersistentVolumeClaims(),
 		*resyncPeriod,
 	)
@@ -102,7 +100,7 @@ func main() {
 	run := func(context.Context) {
 		// run...
 		stopCh := make(chan struct{})
-		factory.Start(stopCh)
+		dynFactory.Start(stopCh)
 		coreFactory.Start(stopCh)
 		go ctrl.Run(*threads, stopCh)
 
