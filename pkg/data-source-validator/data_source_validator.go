@@ -177,20 +177,20 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 		return err
 	}
 
-	dataSource := pvc.Spec.DataSource
-	if nil == dataSource {
+	dataSourceRef := pvc.Spec.DataSourceRef
+	if nil == dataSourceRef {
 		// No data source
 		return nil
 	}
-	if nil == dataSource.APIGroup || "" == *dataSource.APIGroup {
+	if nil == dataSourceRef.APIGroup || "" == *dataSourceRef.APIGroup {
 		// Data source is a core object
 		return nil
 	}
 
-	klog.V(3).Infof("PVC %s datasource is %s.%s", pvc.Name, *dataSource.APIGroup, dataSource.Kind)
+	klog.V(3).Infof("PVC %s datasource is %s.%s", pvc.Name, *dataSourceRef.APIGroup, dataSourceRef.Kind)
 	gk := metav1.GroupKind{
-		Group: *dataSource.APIGroup,
-		Kind:  dataSource.Kind,
+		Group: *dataSourceRef.APIGroup,
+		Kind:  dataSourceRef.Kind,
 	}
 
 	valid, err := ctrl.validateGroupKind(gk)
