@@ -1,6 +1,7 @@
-# RBAC file for the data-source-validator controller
+# RBAC file for the volume-data-source-validator controller
 #
-# The data-source-validator controller does asynchronous validation of PVC data sources
+# The volume-data-source-validator controller does asynchronous validation of PVC data
+# sources.
 # It should be installed as part of the base Kubernetes distribution in an appropriate
 # namespace for components implementing base system functionality. For installing with
 # Vanilla Kubernetes, kube-system makes sense for the namespace.
@@ -8,14 +9,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: data-source-validator
+  name: volume-data-source-validator
   namespace: kube-system
 
 ---
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: data-source-validator
+  name: volume-data-source-validator
 rules:
   - apiGroups: [populator.storage.k8s.io]
     resources: [volumepopulators]
@@ -31,12 +32,12 @@ rules:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: data-source-validator
+  name: volume-data-source-validator
 subjects:
   - kind: ServiceAccount
-    name: data-source-validator
+    name: volume-data-source-validator
     namespace: kube-system
 roleRef:
   kind: ClusterRole
-  name: data-source-validator
+  name: volume-data-source-validator
   apiGroup: rbac.authorization.k8s.io

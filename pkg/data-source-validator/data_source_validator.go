@@ -40,6 +40,7 @@ import (
 	"k8s.io/klog/v2"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+
 	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
 )
 
@@ -75,7 +76,7 @@ func NewDataSourceValidator(
 	broadcaster.StartLogging(klog.Infof)
 	broadcaster.StartRecordingToSink(&corev1.EventSinkImpl{Interface: client.CoreV1().Events(v1.NamespaceAll)})
 	var eventRecorder record.EventRecorder
-	eventRecorder = broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: fmt.Sprintf("data-source-validator")})
+	eventRecorder = broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: fmt.Sprintf("volume-data-source-validator")})
 
 	ctrl := &populatorController{
 		dynClient:     dynClient,
@@ -105,8 +106,8 @@ func NewDataSourceValidator(
 func (ctrl *populatorController) Run(workers int, stopCh <-chan struct{}) {
 	defer ctrl.queue.ShutDown()
 
-	klog.Infof("Starting data-source-validator controller")
-	defer klog.Infof("Shutting down data-source-validator controller")
+	klog.Infof("Starting volume-data-source-validator controller")
+	defer klog.Infof("Shutting down volume-data-source-validator controller")
 
 	if !cache.WaitForCacheSync(stopCh, ctrl.popListerSynced, ctrl.pvcListerSynced) {
 		klog.Errorf("Cannot sync caches")
