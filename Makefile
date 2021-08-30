@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: all data-source-validator clean test
+.PHONY: all volume-data-source-validator clean test
 
-CMDS=data-source-validator
+CMDS=volume-data-source-validator
 all: build
 
 include release-tools/build.make
