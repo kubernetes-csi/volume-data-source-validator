@@ -20,8 +20,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"k8s.io/client-go/dynamic"
@@ -34,8 +37,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kubernetes-csi/csi-lib-utils/leaderelection"
+
 	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
 	popcontroller "github.com/kubernetes-csi/volume-data-source-validator/pkg/data-source-validator"
+	"github.com/kubernetes-csi/volume-data-source-validator/pkg/metrics"
 )
 
 // Command line flags
@@ -45,8 +50,14 @@ var (
 	showVersion  = flag.Bool("version", false, "Show version.")
 	threads      = flag.Int("worker-threads", 10, "Number of worker threads.")
 
-	leaderElection          = flag.Bool("leader-election", false, "Enables leader election.")
-	leaderElectionNamespace = flag.String("leader-election-namespace", "", "The namespace where the leader election resource exists. Defaults to the pod namespace if not set.")
+	leaderElection              = flag.Bool("leader-election", false, "Enables leader election.")
+	leaderElectionNamespace     = flag.String("leader-election-namespace", "", "The namespace where the leader election resource exists. Defaults to the pod namespace if not set.")
+	leaderElectionLeaseDuration = flag.Duration("leader-election-lease-duration", 15*time.Second, "Duration, in seconds, that non-leader candidates will wait to force acquire leadership. Defaults to 15 seconds.")
+	leaderElectionRenewDeadline = flag.Duration("leader-election-renew-deadline", 10*time.Second, "Duration, in seconds, that the acting leader will retry refreshing leadership before giving up. Defaults to 10 seconds.")
+	leaderElectionRetryPeriod   = flag.Duration("leader-election-retry-period", 5*time.Second, "Duration, in seconds, the LeaderElector clients should wait between tries of actions. Defaults to 5 seconds.")
+
+	httpEndpoint = flag.String("http-endpoint", "", "The TCP network address where the HTTP server for diagnostics, including metrics and leader election health check, will listen (example: `:8080`). The default is empty string, which means the server is disabled. Only one of `--metrics-address` and `--http-endpoint` can be set.")
+	metricsPath  = flag.String("metrics-path", "/metrics", "The HTTP path where prometheus metrics will be exposed. Default is `/metrics`.")
 )
 
 var (
@@ -85,6 +96,19 @@ func main() {
 	coreFactory := coreinformers.NewSharedInformerFactory(kubeClient, *resyncPeriod)
 	dynFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, *resyncPeriod)
 
+	// Create and register metrics manager
+	metricsManager := metrics.NewMetricsManager()
+	wg := &sync.WaitGroup{}
+
+	mux := http.NewServeMux()
+	if *httpEndpoint != "" {
+		err := metricsManager.PrepareMetricsPath(mux, *metricsPath, promklog{})
+		if err != nil {
+			klog.Errorf("Failed to prepare metrics path: %s", err.Error())
+			os.Exit(1)
+		}
+		klog.Infof("Metrics path successfully registered at %s", *metricsPath)
+	}
 	popv1alpha1.AddToScheme(scheme.Scheme)
 
 	klog.V(2).Infof("Start NewDataSourceValidator with kubeconfig [%s] resyncPeriod [%+v]", *kubeconfig, *resyncPeriod)
@@ -94,6 +118,7 @@ func main() {
 		kubeClient,
 		dynFactory.ForResource(popcontroller.PopulatorResource).Informer(),
 		coreFactory.Core().V1().PersistentVolumeClaims(),
+		metricsManager,
 		*resyncPeriod,
 	)
 
@@ -111,6 +136,32 @@ func main() {
 		close(stopCh)
 	}
 
+	// start listening & serving http endpoint if set
+	if *httpEndpoint != "" {
+		l, err := net.Listen("tcp", *httpEndpoint)
+		if err != nil {
+			klog.Fatalf("failed to listen on address[%s], error[%v]", *httpEndpoint, err)
+		}
+		srv := &http.Server{Addr: l.Addr().String(), Handler: mux}
+		go func() {
+			defer wg.Done()
+			if err := srv.Serve(l); err != http.ErrServerClosed {
+				klog.Fatalf("failed to start endpoint at:%s/%s, error: %v", *httpEndpoint, *metricsPath, err)
+			}
+		}()
+		klog.Infof("Metrics http server successfully started on %s, %s", *httpEndpoint, *metricsPath)
+
+		defer func() {
+			err := srv.Shutdown(context.Background())
+			if err != nil {
+				klog.Errorf("Failed to shutdown metrics server: %s", err.Error())
+			}
+
+			klog.Infof("Metrics server successfully shutdown")
+			wg.Done()
+		}()
+	}
+
 	if !*leaderElection {
 		run(context.TODO())
 	} else {
@@ -122,9 +173,16 @@ func main() {
 			klog.Fatalf("failed to create leaderelection client: %v", err)
 		}
 		le := leaderelection.NewLeaderElection(leClientset, lockName, run)
+		if *httpEndpoint != "" {
+			le.PrepareHealthCheck(mux, leaderelection.DefaultHealthCheckTimeout)
+		}
+
 		if *leaderElectionNamespace != "" {
 			le.WithNamespace(*leaderElectionNamespace)
 		}
+		le.WithLeaseDuration(*leaderElectionLeaseDuration)
+		le.WithRenewDeadline(*leaderElectionRenewDeadline)
+		le.WithRetryPeriod(*leaderElectionRetryPeriod)
 		if err := le.Run(); err != nil {
 			klog.Fatalf("failed to initialize leader election: %v", err)
 		}
@@ -136,4 +194,10 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 		return clientcmd.BuildConfigFromFlags("", kubeconfig)
 	}
 	return rest.InClusterConfig()
+}
+
+type promklog struct{}
+
+func (pl promklog) Println(v ...interface{}) {
+	klog.Error(v...)
 }
