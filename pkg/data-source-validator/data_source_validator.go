@@ -42,6 +42,7 @@ import (
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 
 	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
+	"github.com/kubernetes-csi/volume-data-source-validator/pkg/metrics"
 )
 
 type populatorController struct {
@@ -54,6 +55,8 @@ type populatorController struct {
 	popListerSynced cache.InformerSynced
 	pvcLister       corelisters.PersistentVolumeClaimLister
 	pvcListerSynced cache.InformerSynced
+
+	metrics metrics.MetricsManager
 
 	resyncPeriod time.Duration
 }
@@ -70,6 +73,7 @@ func NewDataSourceValidator(
 	client kubernetes.Interface,
 	volumePopulatorInformer cache.SharedIndexInformer,
 	pvcInformer coreinformers.PersistentVolumeClaimInformer,
+	metrics metrics.MetricsManager,
 	resyncPeriod time.Duration,
 ) *populatorController {
 	broadcaster := record.NewBroadcaster()
@@ -82,6 +86,7 @@ func NewDataSourceValidator(
 		dynClient:     dynClient,
 		client:        client,
 		eventRecorder: eventRecorder,
+		metrics:       metrics,
 		resyncPeriod:  resyncPeriod,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pvc"),
 	}
@@ -181,18 +186,19 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 	dataSourceRef := pvc.Spec.DataSourceRef
 	if nil == dataSourceRef {
 		// No data source
+		ctrl.metrics.IncrementCount(metrics.DataSourceEmptyResultName)
 		return nil
 	}
-	if nil == dataSourceRef.APIGroup || "" == *dataSourceRef.APIGroup {
-		// Data source is a core object
-		return nil
+	apiGroup := ""
+	if nil != dataSourceRef.APIGroup {
+		apiGroup = *dataSourceRef.APIGroup
 	}
 
-	klog.V(3).Infof("PVC %s datasource is %s.%s", pvc.Name, *dataSourceRef.APIGroup, dataSourceRef.Kind)
 	gk := metav1.GroupKind{
-		Group: *dataSourceRef.APIGroup,
+		Group: apiGroup,
 		Kind:  dataSourceRef.Kind,
 	}
+	klog.V(3).Infof("PVC %s datasource is %s", pvc.Name, gk.String())
 
 	valid, err := ctrl.validateGroupKind(gk)
 	if nil != err {
@@ -208,29 +214,38 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 }
 
 func (ctrl *populatorController) validateGroupKind(gk metav1.GroupKind) (bool, error) {
+	// Cloning PVCs and Volume Snapshots are special cases, allowed by the
+	// core, so don't reject these.
 	switch gk {
-	case pvcGK, volumeSnapshotGK:
-		// Cloning PVCs and Volume Snapshots are special cases, allowed by the
-		// core, so don't reject these.
-		klog.V(4).Infof("Allowing %s as a special case", gk.String())
+	case pvcGK:
+		ctrl.metrics.IncrementCount(metrics.DataSourcePVCResultName)
+		klog.V(4).Infof("Allowing PVC as a special case")
+		return true, nil
+	case volumeSnapshotGK:
+		ctrl.metrics.IncrementCount(metrics.DataSourceSnapshotResultName)
+		klog.V(4).Infof("Allowing VolumeSnapshot as a special case")
 		return true, nil
 	}
 	unstPopulators, err := ctrl.popLister.List(labels.Everything())
 	if nil != err {
 		klog.Errorf("Failed to list populators: %v", err)
+		ctrl.metrics.IncrementCount(metrics.DataSourceErrorResultName)
 		return false, err
 	}
 	for _, unstPopulator := range unstPopulators {
 		var populator popv1alpha1.VolumePopulator
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstPopulator.UnstructuredContent(), &populator)
 		if nil != err {
+			ctrl.metrics.IncrementCount(metrics.DataSourceErrorResultName)
 			return false, err
 		}
 		if populator.SourceKind == gk {
+			ctrl.metrics.IncrementCount(metrics.DataSourcePopulatorResultName)
 			klog.V(4).Infof("Allowing %s due to %s populator", gk.String(), populator.Name)
 			return true, nil
 		}
 	}
+	ctrl.metrics.IncrementCount(metrics.DataSourceInvalidResultName)
 	klog.Warningf("No populator matches %s", gk.String())
 	return false, nil
 }

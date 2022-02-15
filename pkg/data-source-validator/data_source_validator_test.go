@@ -18,8 +18,10 @@ package data_source_validator
 
 import (
 	"errors"
+	"net/http"
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -28,10 +30,20 @@ import (
 	"k8s.io/client-go/dynamic/dynamiclister"
 	"k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/tools/cache"
+	k8smetrics "k8s.io/component-base/metrics"
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+
 	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
 )
+
+type FakeMetricsManager struct{}
+
+func (*FakeMetricsManager) PrepareMetricsPath(mux *http.ServeMux, pattern string, logger promhttp.Logger) error {
+	return nil
+}
+func (*FakeMetricsManager) IncrementCount(result string)         {}
+func (*FakeMetricsManager) GetRegistry() k8smetrics.KubeRegistry { return nil }
 
 func makeFakeLister(populators ...*popv1alpha1.VolumePopulator) dynamiclister.Lister {
 	scheme := runtime.NewScheme()
@@ -67,6 +79,7 @@ func (*brokenVolumeLister) Namespace(string) dynamiclister.NamespaceLister {
 
 func TestValidateGroupKind(t *testing.T) {
 	ctrl := new(populatorController)
+	ctrl.metrics = new(FakeMetricsManager)
 
 	populator := popv1alpha1.VolumePopulator{
 		TypeMeta: metav1.TypeMeta{
@@ -137,6 +150,7 @@ func TestValidateGroupKind(t *testing.T) {
 
 func TestPopListError(t *testing.T) {
 	ctrl := new(populatorController)
+	ctrl.metrics = new(FakeMetricsManager)
 	ctrl.popLister = new(brokenVolumeLister)
 
 	valid, err := ctrl.validateGroupKind(metav1.GroupKind{
