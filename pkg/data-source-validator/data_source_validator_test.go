@@ -34,7 +34,7 @@ import (
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 
-	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
+	popv1beta1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1beta1"
 )
 
 type FakeMetricsManager struct{}
@@ -45,9 +45,9 @@ func (*FakeMetricsManager) PrepareMetricsPath(mux *http.ServeMux, pattern string
 func (*FakeMetricsManager) IncrementCount(result string)         {}
 func (*FakeMetricsManager) GetRegistry() k8smetrics.KubeRegistry { return nil }
 
-func makeFakeLister(populators ...*popv1alpha1.VolumePopulator) dynamiclister.Lister {
+func makeFakeLister(populators ...*popv1beta1.VolumePopulator) dynamiclister.Lister {
 	scheme := runtime.NewScheme()
-	popv1alpha1.AddToScheme(scheme)
+	popv1beta1.AddToScheme(scheme)
 	objects := make([]runtime.Object, len(populators))
 	for i := range populators {
 		objects[i] = populators[i]
@@ -81,7 +81,7 @@ func TestValidateGroupKind(t *testing.T) {
 	ctrl := new(populatorController)
 	ctrl.metrics = new(FakeMetricsManager)
 
-	populator := popv1alpha1.VolumePopulator{
+	populator := popv1beta1.VolumePopulator{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VolumePopulator",
 			APIVersion: "populator.storage.k8s.io",

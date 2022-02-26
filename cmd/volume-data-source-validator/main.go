@@ -38,7 +38,8 @@ import (
 
 	"github.com/kubernetes-csi/csi-lib-utils/leaderelection"
 
-	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
+	popv1beta1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1beta1"
+
 	popcontroller "github.com/kubernetes-csi/volume-data-source-validator/pkg/data-source-validator"
 	"github.com/kubernetes-csi/volume-data-source-validator/pkg/metrics"
 )
@@ -109,7 +110,7 @@ func main() {
 		}
 		klog.Infof("Metrics path successfully registered at %s", *metricsPath)
 	}
-	popv1alpha1.AddToScheme(scheme.Scheme)
+	popv1beta1.AddToScheme(scheme.Scheme)
 
 	klog.V(2).Infof("Start NewDataSourceValidator with kubeconfig [%s] resyncPeriod [%+v]", *kubeconfig, *resyncPeriod)
 
