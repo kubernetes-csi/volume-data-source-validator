@@ -41,7 +41,7 @@ import (
 
 	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 
-	popv1alpha1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1alpha1"
+	popv1beta1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1beta1"
 	"github.com/kubernetes-csi/volume-data-source-validator/pkg/metrics"
 )
 
@@ -65,7 +65,7 @@ var (
 	pvcGK            = metav1.GroupKind{Group: v1.GroupName, Kind: "PersistentVolumeClaim"}
 	volumeSnapshotGK = metav1.GroupKind{Group: volumesnapshotv1.GroupName, Kind: "VolumeSnapshot"}
 
-	PopulatorResource = popv1alpha1.SchemeGroupVersion.WithResource("volumepopulators")
+	PopulatorResource = popv1beta1.SchemeGroupVersion.WithResource("volumepopulators")
 )
 
 func NewDataSourceValidator(
@@ -233,7 +233,7 @@ func (ctrl *populatorController) validateGroupKind(gk metav1.GroupKind) (bool, e
 		return false, err
 	}
 	for _, unstPopulator := range unstPopulators {
-		var populator popv1alpha1.VolumePopulator
+		var populator popv1beta1.VolumePopulator
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstPopulator.UnstructuredContent(), &populator)
 		if nil != err {
 			ctrl.metrics.IncrementCount(metrics.DataSourceErrorResultName)

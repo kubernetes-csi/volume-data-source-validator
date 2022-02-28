@@ -21,7 +21,7 @@ set -o pipefail
 SCRIPT_ROOT=$(unset CDPATH && cd $(dirname "${BASH_SOURCE[0]}")/.. && pwd)
 
 # find or download controller-gen
-CONTROLLER_GEN=$(which controller-gen)
+CONTROLLER_GEN=$(which controller-gen || true)
 
 if [ "$CONTROLLER_GEN" = "" ]
 then
@@ -30,7 +30,7 @@ then
   go mod init tmp;
   go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0;
   rm -rf $TMP_DIR;
-  CONTROLLER_GEN=$(which controller-gen)
+  CONTROLLER_GEN=$(which controller-gen || true)
 fi
 
 if [ "$CONTROLLER_GEN" = "" ]
@@ -39,7 +39,7 @@ then
   exit 1;
 fi
 
-$CONTROLLER_GEN crd:crdVersions=v1,trivialVersions=true paths=${SCRIPT_ROOT}/apis/volumepopulator/v1alpha1
+$CONTROLLER_GEN crd:crdVersions=v1,trivialVersions=true paths=${SCRIPT_ROOT}/apis/volumepopulator/v1beta1
 
 $CONTROLLER_GEN object:headerFile=./hack/boilerplate.go.txt,year=$(date +%Y) \
-  paths=${SCRIPT_ROOT}/apis/volumepopulator/v1alpha1/types.go
+  paths=${SCRIPT_ROOT}/apis/volumepopulator/v1beta1/types.go
