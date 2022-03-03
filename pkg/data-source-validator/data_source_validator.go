@@ -174,7 +174,7 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 		return nil
 	}
 	pvc, err := ctrl.pvcLister.PersistentVolumeClaims(namespace).Get(name)
-	if nil != err {
+	if err != nil {
 		if errors.IsNotFound(err) {
 			utilruntime.HandleError(fmt.Errorf("pvc '%s' in work queue no longer exists", key))
 			return nil
@@ -184,13 +184,13 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 	}
 
 	dataSourceRef := pvc.Spec.DataSourceRef
-	if nil == dataSourceRef {
+	if dataSourceRef == nil {
 		// No data source
 		ctrl.metrics.IncrementCount(metrics.DataSourceEmptyResultName)
 		return nil
 	}
 	apiGroup := ""
-	if nil != dataSourceRef.APIGroup {
+	if dataSourceRef.APIGroup != nil {
 		apiGroup = *dataSourceRef.APIGroup
 	}
 
@@ -198,16 +198,16 @@ func (ctrl *populatorController) syncPvcByKey(key string) error {
 		Group: apiGroup,
 		Kind:  dataSourceRef.Kind,
 	}
-	klog.V(3).Infof("PVC %s datasource is %s", pvc.Name, gk.String())
+	klog.V(3).Infof("PVC %q datasource is %q", pvc.Name, gk.String())
 
 	valid, err := ctrl.validateGroupKind(gk)
-	if nil != err {
+	if err != nil {
 		return err
 	}
 
 	if !valid {
 		ctrl.eventRecorder.Event(pvc, v1.EventTypeWarning, "UnrecognizedDataSourceKind",
-			"The data source for this PVC does not match any registered VolumePopulator")
+			"The datasource for this PVC does not match any registered VolumePopulator")
 	}
 
 	return nil
@@ -227,7 +227,7 @@ func (ctrl *populatorController) validateGroupKind(gk metav1.GroupKind) (bool, e
 		return true, nil
 	}
 	unstPopulators, err := ctrl.popLister.List(labels.Everything())
-	if nil != err {
+	if err != nil {
 		klog.Errorf("Failed to list populators: %v", err)
 		ctrl.metrics.IncrementCount(metrics.DataSourceErrorResultName)
 		return false, err
@@ -235,13 +235,13 @@ func (ctrl *populatorController) validateGroupKind(gk metav1.GroupKind) (bool, e
 	for _, unstPopulator := range unstPopulators {
 		var populator popv1beta1.VolumePopulator
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(unstPopulator.UnstructuredContent(), &populator)
-		if nil != err {
+		if err != nil {
 			ctrl.metrics.IncrementCount(metrics.DataSourceErrorResultName)
 			return false, err
 		}
 		if populator.SourceKind == gk {
 			ctrl.metrics.IncrementCount(metrics.DataSourcePopulatorResultName)
-			klog.V(4).Infof("Allowing %s due to %s populator", gk.String(), populator.Name)
+			klog.V(4).Infof("Allowing %q due to %q populator", gk.String(), populator.Name)
 			return true, nil
 		}
 	}
