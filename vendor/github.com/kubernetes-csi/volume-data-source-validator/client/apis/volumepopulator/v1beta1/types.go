@@ -24,7 +24,11 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// VolumePopulator represents the registration for a volume populator
+// VolumePopulator represents the registration for a volume populator.
+// VolumePopulators are cluster scoped.
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="SourceKind",type=string,JSONPath=`.sourceKind`
 type VolumePopulator struct {
 	metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
@@ -38,6 +42,7 @@ type VolumePopulator struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // VolumePopulatorList is a list of VolumePopulator objects
+// +kubebuilder:object:root=true
 type VolumePopulatorList struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
