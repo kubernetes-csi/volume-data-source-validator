@@ -15,12 +15,16 @@ spec:
     listKind: VolumePopulatorList
     plural: volumepopulators
     singular: volumepopulator
-  scope: Namespaced
+  scope: Cluster
   versions:
-  - name: v1beta1
+  - additionalPrinterColumns:
+    - jsonPath: .sourceKind
+      name: SourceKind
+      type: string
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: VolumePopulator represents the registration for a volume populator
+        description: VolumePopulator represents the registration for a volume populator. VolumePopulators are cluster scoped.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -46,6 +50,7 @@ spec:
         type: object
     served: true
     storage: true
+    subresources: {}
 status:
   acceptedNames:
     kind: ""
