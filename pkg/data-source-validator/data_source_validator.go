@@ -18,8 +18,9 @@ package data_source_validator
 
 import (
 	"fmt"
-	"time"
 
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	popv1beta1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,9 +40,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-
-	popv1beta1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1beta1"
 	"github.com/kubernetes-csi/volume-data-source-validator/pkg/metrics"
 )
 
@@ -57,8 +55,6 @@ type populatorController struct {
 	pvcListerSynced cache.InformerSynced
 
 	metrics metrics.MetricsManager
-
-	resyncPeriod time.Duration
 }
 
 var (
@@ -74,7 +70,6 @@ func NewDataSourceValidator(
 	volumePopulatorInformer cache.SharedIndexInformer,
 	pvcInformer coreinformers.PersistentVolumeClaimInformer,
 	metrics metrics.MetricsManager,
-	resyncPeriod time.Duration,
 ) *populatorController {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartLogging(klog.Infof)
@@ -87,17 +82,15 @@ func NewDataSourceValidator(
 		client:        client,
 		eventRecorder: eventRecorder,
 		metrics:       metrics,
-		resyncPeriod:  resyncPeriod,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pvc"),
 	}
 
-	pvcInformer.Informer().AddEventHandlerWithResyncPeriod(
+	pvcInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { ctrl.enqueueWork(obj) },
+			AddFunc:    ctrl.enqueueWork,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.enqueueWork(newObj) },
-			DeleteFunc: func(obj interface{}) { ctrl.enqueueWork(obj) },
+			DeleteFunc: ctrl.enqueueWork,
 		},
-		ctrl.resyncPeriod,
 	)
 	ctrl.pvcLister = pvcInformer.Lister()
 	ctrl.pvcListerSynced = pvcInformer.Informer().HasSynced

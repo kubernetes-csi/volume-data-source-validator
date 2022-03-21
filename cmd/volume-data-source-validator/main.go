@@ -46,10 +46,9 @@ import (
 
 // Command line flags
 var (
-	kubeconfig   = flag.String("kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
-	resyncPeriod = flag.Duration("resync-period", 60*time.Second, "Resync interval of the controller.")
-	showVersion  = flag.Bool("version", false, "Show version.")
-	threads      = flag.Int("worker-threads", 10, "Number of worker threads.")
+	kubeconfig  = flag.String("kubeconfig", "", "Absolute path to the kubeconfig file. Required only when running out of cluster.")
+	showVersion = flag.Bool("version", false, "Show version.")
+	threads     = flag.Int("worker-threads", 10, "Number of worker threads.")
 
 	leaderElection              = flag.Bool("leader-election", false, "Enables leader election.")
 	leaderElectionNamespace     = flag.String("leader-election-namespace", "", "The namespace where the leader election resource exists. Defaults to the pod namespace if not set.")
@@ -94,8 +93,8 @@ func main() {
 		klog.Fatalf("Failed to create dynamic client: %v", err)
 	}
 
-	coreFactory := coreinformers.NewSharedInformerFactory(kubeClient, *resyncPeriod)
-	dynFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, *resyncPeriod)
+	coreFactory := coreinformers.NewSharedInformerFactory(kubeClient, 0)
+	dynFactory := dynamicinformer.NewDynamicSharedInformerFactory(dynClient, 0)
 
 	// Create and register metrics manager
 	metricsManager := metrics.NewMetricsManager()
@@ -112,7 +111,7 @@ func main() {
 	}
 	popv1beta1.AddToScheme(scheme.Scheme)
 
-	klog.V(2).Infof("Start NewDataSourceValidator with kubeconfig [%s] resyncPeriod [%+v]", *kubeconfig, *resyncPeriod)
+	klog.V(2).Infof("Start NewDataSourceValidator with kubeconfig [%s]", *kubeconfig)
 
 	ctrl := popcontroller.NewDataSourceValidator(
 		dynClient,
@@ -120,7 +119,6 @@ func main() {
 		dynFactory.ForResource(popcontroller.PopulatorResource).Informer(),
 		coreFactory.Core().V1().PersistentVolumeClaims(),
 		metricsManager,
-		*resyncPeriod,
 	)
 
 	run := func(context.Context) {
