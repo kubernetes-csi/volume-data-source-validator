@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	k8smetrics "k8s.io/component-base/metrics"
 
-	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 
 	popv1beta1 "github.com/kubernetes-csi/volume-data-source-validator/client/apis/volumepopulator/v1beta1"
 )
