@@ -1,0 +1,92 @@
+# Release notes for v1.1
+
+## Dependencies
+
+### Added
+- github.com/armon/go-socks5: [e753329](https://github.com/armon/go-socks5/tree/e753329)
+- github.com/blang/semver/v4: [v4.0.0](https://github.com/blang/semver/v4/tree/v4.0.0)
+- github.com/coreos/bbolt: [v1.3.2](https://github.com/coreos/bbolt/tree/v1.3.2)
+- github.com/coreos/etcd: [v3.3.13+incompatible](https://github.com/coreos/etcd/tree/v3.3.13)
+- github.com/coreos/go-systemd: [95778df](https://github.com/coreos/go-systemd/tree/95778df)
+- github.com/coreos/pkg: [399ea9e](https://github.com/coreos/pkg/tree/399ea9e)
+- github.com/dgryski/go-sip13: [e10d5fe](https://github.com/dgryski/go-sip13/tree/e10d5fe)
+- github.com/go-task/slim-sprig: [348f09d](https://github.com/go-task/slim-sprig/tree/348f09d)
+- github.com/google/gnostic: [v0.5.7-v3refs](https://github.com/google/gnostic/tree/v0.5.7-v3refs)
+- github.com/grpc-ecosystem/go-grpc-middleware: [v1.0.0](https://github.com/grpc-ecosystem/go-grpc-middleware/tree/v1.0.0)
+- github.com/grpc-ecosystem/go-grpc-prometheus: [v1.2.0](https://github.com/grpc-ecosystem/go-grpc-prometheus/tree/v1.2.0)
+- github.com/jonboulle/clockwork: [v0.1.0](https://github.com/jonboulle/clockwork/tree/v0.1.0)
+- github.com/josharian/intern: [v1.0.0](https://github.com/josharian/intern/tree/v1.0.0)
+- github.com/kubernetes-csi/external-snapshotter/client/v6: [v6.0.1](https://github.com/kubernetes-csi/external-snapshotter/client/v6/tree/v6.0.1)
+- github.com/oklog/ulid: [v1.3.1](https://github.com/oklog/ulid/tree/v1.3.1)
+- github.com/prometheus/tsdb: [v0.7.1](https://github.com/prometheus/tsdb/tree/v0.7.1)
+- github.com/soheilhy/cmux: [v0.1.4](https://github.com/soheilhy/cmux/tree/v0.1.4)
+- github.com/tmc/grpc-websocket-proxy: [0ad062e](https://github.com/tmc/grpc-websocket-proxy/tree/0ad062e)
+- github.com/xiang90/probing: [43a291a](https://github.com/xiang90/probing/tree/43a291a)
+- go.etcd.io/bbolt: v1.3.2
+- gopkg.in/resty.v1: v1.12.0
+
+### Changed
+- github.com/bketelsen/crypt: [v0.0.4 → 5cbc8cc](https://github.com/bketelsen/crypt/compare/v0.0.4...5cbc8cc)
+- github.com/cespare/xxhash/v2: [v2.1.1 → v2.1.2](https://github.com/cespare/xxhash/v2/compare/v2.1.1...v2.1.2)
+- github.com/container-storage-interface/spec: [v1.2.0 → v1.5.0](https://github.com/container-storage-interface/spec/compare/v1.2.0...v1.5.0)
+- github.com/cpuguy83/go-md2man/v2: [v2.0.0 → v2.0.1](https://github.com/cpuguy83/go-md2man/v2/compare/v2.0.0...v2.0.1)
+- github.com/go-openapi/jsonreference: [v0.19.3 → v0.19.5](https://github.com/go-openapi/jsonreference/compare/v0.19.3...v0.19.5)
+- github.com/go-openapi/swag: [v0.19.5 → v0.19.14](https://github.com/go-openapi/swag/compare/v0.19.5...v0.19.14)
+- github.com/google/go-cmp: [v0.5.5 → v0.5.6](https://github.com/google/go-cmp/compare/v0.5.5...v0.5.6)
+- github.com/kr/pty: [v1.1.5 → v1.1.1](https://github.com/kr/pty/compare/v1.1.5...v1.1.1)
+- github.com/kubernetes-csi/csi-lib-utils: [v0.9.1 → v0.11.0](https://github.com/kubernetes-csi/csi-lib-utils/compare/v0.9.1...v0.11.0)
+- github.com/magiconair/properties: [v1.8.5 → v1.8.1](https://github.com/magiconair/properties/compare/v1.8.5...v1.8.1)
+- github.com/mailru/easyjson: [v0.7.0 → v0.7.6](https://github.com/mailru/easyjson/compare/v0.7.0...v0.7.6)
+- github.com/mitchellh/go-homedir: [v1.0.0 → v1.1.0](https://github.com/mitchellh/go-homedir/compare/v1.0.0...v1.1.0)
+- github.com/mitchellh/mapstructure: [v1.4.1 → v1.1.2](https://github.com/mitchellh/mapstructure/compare/v1.4.1...v1.1.2)
+- github.com/moby/term: [9d4ed18 → 3f7ff69](https://github.com/moby/term/compare/9d4ed18...3f7ff69)
+- github.com/munnerz/goautoneg: [a547fc6 → a7dc8b6](https://github.com/munnerz/goautoneg/compare/a547fc6...a7dc8b6)
+- github.com/nxadm/tail: [v1.4.4 → v1.4.8](https://github.com/nxadm/tail/compare/v1.4.4...v1.4.8)
+- github.com/onsi/ginkgo: [v1.14.1 → v1.16.5](https://github.com/onsi/ginkgo/compare/v1.14.1...v1.16.5)
+- github.com/onsi/gomega: [v1.10.2 → v1.17.0](https://github.com/onsi/gomega/compare/v1.10.2...v1.17.0)
+- github.com/pelletier/go-toml: [v1.9.3 → v1.2.0](https://github.com/pelletier/go-toml/compare/v1.9.3...v1.2.0)
+- github.com/prometheus/client_golang: [v1.11.0 → v1.12.1](https://github.com/prometheus/client_golang/compare/v1.11.0...v1.12.1)
+- github.com/prometheus/common: [v0.28.0 → v0.32.1](https://github.com/prometheus/common/compare/v0.28.0...v0.32.1)
+- github.com/prometheus/procfs: [v0.6.0 → v0.7.3](https://github.com/prometheus/procfs/compare/v0.6.0...v0.7.3)
+- github.com/russross/blackfriday/v2: [v2.0.1 → v2.1.0](https://github.com/russross/blackfriday/v2/compare/v2.0.1...v2.1.0)
+- github.com/spf13/afero: [v1.6.0 → v1.2.2](https://github.com/spf13/afero/compare/v1.6.0...v1.2.2)
+- github.com/spf13/cast: [v1.3.1 → v1.3.0](https://github.com/spf13/cast/compare/v1.3.1...v1.3.0)
+- github.com/spf13/cobra: [v1.2.1 → v1.4.0](https://github.com/spf13/cobra/compare/v1.2.1...v1.4.0)
+- github.com/spf13/jwalterweatherman: [v1.1.0 → v1.0.0](https://github.com/spf13/jwalterweatherman/compare/v1.1.0...v1.0.0)
+- github.com/spf13/viper: [v1.8.1 → v1.7.0](https://github.com/spf13/viper/compare/v1.8.1...v1.7.0)
+- github.com/stretchr/objx: [v0.2.0 → v0.1.1](https://github.com/stretchr/objx/compare/v0.2.0...v0.1.1)
+- github.com/yuin/goldmark: [v1.4.0 → v1.4.1](https://github.com/yuin/goldmark/compare/v1.4.0...v1.4.1)
+- golang.org/x/crypto: 32db794 → 8634188
+- golang.org/x/mod: v0.4.2 → 9b9b3d8
+- golang.org/x/net: 491a49a → cd36cc0
+- golang.org/x/oauth2: 2bc19b1 → d3ed0bb
+- golang.org/x/sys: f4d4317 → 3681064
+- golang.org/x/term: 6886f2d → 03fcf44
+- golang.org/x/time: 1f47c86 → 90d013b
+- golang.org/x/tools: d4cc65f → 897bd77
+- google.golang.org/api: v0.44.0 → v0.43.0
+- google.golang.org/genproto: fe13028 → 42d7afd
+- gopkg.in/ini.v1: v1.62.0 → v1.51.0
+- k8s.io/api: v0.23.4 → v0.24.0
+- k8s.io/apimachinery: v0.23.4 → v0.24.0
+- k8s.io/client-go: v0.23.4 → v0.24.0
+- k8s.io/code-generator: v0.19.0 → v0.23.0
+- k8s.io/component-base: v0.23.4 → v0.24.0
+- k8s.io/klog/v2: v2.30.0 → v2.60.1
+- k8s.io/kube-openapi: e816edb → 3ee0da9
+- k8s.io/utils: 6203023 → 3a6ce19
+- sigs.k8s.io/json: c049b76 → 9f7c6b3
+- sigs.k8s.io/yaml: v1.2.0 → v1.3.0
+
+### Removed
+- github.com/coreos/go-systemd/v22: [v22.3.2](https://github.com/coreos/go-systemd/v22/tree/v22.3.2)
+- github.com/docker/spdystream: [449fdfc](https://github.com/docker/spdystream/tree/449fdfc)
+- github.com/go-openapi/spec: [v0.19.3](https://github.com/go-openapi/spec/tree/v0.19.3)
+- github.com/godbus/dbus/v5: [v5.0.4](https://github.com/godbus/dbus/v5/tree/v5.0.4)
+- github.com/kr/fs: [v0.1.0](https://github.com/kr/fs/tree/v0.1.0)
+- github.com/kubernetes-csi/external-snapshotter/client/v4: [v4.0.0](https://github.com/kubernetes-csi/external-snapshotter/client/v4/tree/v4.0.0)
+- github.com/pkg/sftp: [v1.10.1](https://github.com/pkg/sftp/tree/v1.10.1)
+- go.etcd.io/etcd/api/v3: v3.5.0
+- go.etcd.io/etcd/client/pkg/v3: v3.5.0
+- go.etcd.io/etcd/client/v2: v2.305.0
+- gotest.tools: v2.2.0+incompatible
