@@ -359,6 +359,16 @@ default_csi_snapshotter_version () {
 }
 configvar CSI_SNAPSHOTTER_VERSION "$(default_csi_snapshotter_version)" "external-snapshotter version tag"
 
+# Which volume data source validator tag to use for the volume populators CRDs and volume data source validator controller deployment
+default_volume_data_source_validator_version () {
+	if [ "${CSI_PROW_KUBERNETES_VERSION}" = "latest" ] || [ "${CSI_PROW_DRIVER_CANARY}" = "canary" ]; then
+		echo "master"
+	else
+		echo "release-1.1"
+	fi
+}
+configvar VOLUME_DATA_SOURCE_VALIDATOR_VERSION "$(default_volume_data_source_validator_version)" "volume data source validator version tag"
+
 # Some tests are known to be unusable in a KinD cluster. For example,
 # stopping kubelet with "ssh <node IP> systemctl stop kubelet" simply
 # doesn't work. Such tests should be written in a way that they verify
@@ -865,6 +875,133 @@ install_snapshot_controller() {
   done
 }
 
+# Installs all necessary volumepopulators CRDs
+install_volumepopulators_crds() {
+  # Wait until volumepopulators CRDs are in place.
+  CRD_BASE_DIR="https://raw.githubusercontent.com/kubernetes-csi/volume-data-source-validator/${VOLUME_DATA_SOURCE_VALIDATOR_VERSION}/client/config/crd"
+  if [[ ${REPO_DIR} == *"volume-data-source-validator"* ]]; then
+      CRD_BASE_DIR="${REPO_DIR}/client/config/crd"
+  fi
+  echo "Installing volumepopulators CRDs from ${CRD_BASE_DIR}"
+  kubectl apply -f "${CRD_BASE_DIR}/populator.storage.k8s.io_volumepopulators.yaml" --validate=false
+  cnt=0
+  until kubectl get volumepopulators.populator.storage.k8s.io; do
+    if [ $cnt -gt 30 ]; then
+        echo >&2 "ERROR: volumepopulators CRDs not ready after over 1 min"
+        exit 1
+    fi
+    echo "$(date +%H:%M:%S)" "waiting for volumepopulators CRDs, attempt #$cnt"
+	cnt=$((cnt + 1))
+    sleep 2
+  done
+}
+
+# Install snapshot controller and associated RBAC, retrying until the pod is running.
+install_volume_data_source_validator_controller() {
+  CONTROLLER_DIR="https://raw.githubusercontent.com/kubernetes-csi/volume-data-source-validator/${VOLUME_DATA_SOURCE_VALIDATOR_VERSION}"
+  if [[ ${REPO_DIR} == *"volume-data-source-validator"* ]]; then
+      CONTROLLER_DIR="${REPO_DIR}"
+  fi
+  VOLUME_DATA_SOURCE_VALIDATOR_RBAC_YAML="${CONTROLLER_DIR}/deploy/kubernetes/rbac-data-source-validator.yaml"
+  echo "kubectl apply -f ${SNAPSHOT_RBAC_YAML}"
+  # Ignore: Double quote to prevent globbing and word splitting.
+  # shellcheck disable=SC2086
+  kubectl apply -f ${SNAPSHOT_RBAC_YAML}
+
+  cnt=0
+  until kubectl get clusterrolebinding volume-data-source-validator; do
+     if [ $cnt -gt 30 ]; then
+        echo "Cluster role bindings:"
+        kubectl describe clusterrolebinding
+        echo >&2 "ERROR: volume data source validator controller RBAC not ready after over 5 min"
+        exit 1
+    fi
+    echo "$(date +%H:%M:%S)" "waiting for snapshot RBAC setup complete, attempt #$cnt"
+	cnt=$((cnt + 1))
+    sleep 10
+  done
+
+  VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML="${CONTROLLER_DIR}/deploy/kubernetes/setup-data-source-validator.yaml"
+  if [[ ${REPO_DIR} == *"volume-data-source-validator"* ]]; then
+      # volume-data-source-validator-controller image built from the PR will get a "csiprow" tag.
+      # Load it into the "kind" cluster so that we can deploy it.
+      NEW_TAG="csiprow"
+      NEW_IMG="volume-data-source-validator-controller:${NEW_TAG}"
+      echo "kind load docker-image --name csi-prow ${NEW_IMG}"
+      kind load docker-image --name csi-prow ${NEW_IMG} || die "could not load the volume-data-source-validator:csiprow image into the kind cluster"
+
+      # deploy volume-data-source-validator-controller
+      echo "Deploying volume-data-source-validator-controller from ${VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML} with $NEW_IMG."
+      # Replace image in VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML with snapshot-controller:csiprow and deploy
+      # NOTE: This logic is similar to the logic here:
+      # https://github.com/kubernetes-csi/csi-driver-host-path/blob/v1.4.0/deploy/util/deploy-hostpath.sh#L155
+      # Ignore: Double quote to prevent globbing and word splitting.
+      # shellcheck disable=SC2086
+      # Ignore: Use find instead of ls to better handle non-alphanumeric filenames.
+      # shellcheck disable=SC2012
+      for i in $(ls ${VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML} | sort); do
+          echo "   $i"
+          # Ignore: Useless cat. Consider 'cmd < file | ..' or 'cmd file | ..' instead.
+          # shellcheck disable=SC2002
+          # Ignore: See if you can use ${variable//search/replace} instead.
+          # shellcheck disable=SC2001
+          modified="$(cat "$i" | while IFS= read -r line; do
+              nocomments="$(echo "$line" | sed -e 's/ *#.*$//')"
+              if echo "$nocomments" | grep -q '^[[:space:]]*image:[[:space:]]*'; then
+                  # Split 'image: registry.k8s.io/sig-storage/volume-data-source-validator-controller:v1.1'
+                  # into image (volume-data-source-validator-controller:v1.1),
+                  # name (volume-data-source-validator-controller),
+                  # tag (v1.1).
+                  image=$(echo "$nocomments" | sed -e 's;.*image:[[:space:]]*;;')
+                  name=$(echo "$image" | sed -e 's;.*/\([^:]*\).*;\1;')
+                  tag=$(echo "$image" | sed -e 's;.*:;;')
+
+                  # Now replace registry and/or tag
+                  NEW_TAG="csiprow"
+                  line="$(echo "$nocomments" | sed -e "s;$image;${name}:${NEW_TAG};")"
+	          echo "        using $line" >&2
+              fi
+              echo "$line"
+          done)"
+          if ! echo "$modified" | kubectl apply -f -; then
+              echo "modified version of $i:"
+              echo "$modified"
+              exit 1
+          fi
+      done
+  elif [ "${CSI_PROW_DRIVER_CANARY}" = "canary" ]; then
+      echo "Deploying volume-data-source-validator-controller from ${VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML} with canary images."
+      yaml="$(kubectl apply --dry-run=client -o yaml -f "$VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML")"
+      # Ignore: See if you can use ${variable//search/replace} instead.
+      # shellcheck disable=SC2001
+      modified="$(echo "$yaml" | sed -e "s;image: .*/\([^/:]*\):.*;image: ${CSI_PROW_DRIVER_CANARY_REGISTRY}/\1:canary;")"
+      diff <(echo "$yaml") <(echo "$modified")
+      if ! echo "$modified" | kubectl apply -f -; then
+          echo "modified version of $VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML:"
+          echo "$modified"
+          exit 1
+      fi
+  else
+      echo "kubectl apply -f $VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML"
+      kubectl apply -f "$VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML"
+  fi
+
+  cnt=0
+  expected_running_pods=$(kubectl apply --dry-run=client -o "jsonpath={.spec.replicas}" -f "$VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML")
+  expected_namespace=$(kubectl apply --dry-run=client -o "jsonpath={.metadata.namespace}" -f "$VOLUME_DATA_SOURCE_VALIDATOR_CONTROLLER_YAML")
+  while [ "$(kubectl get pods -n "$expected_namespace" -l app=volume-data-source-validator | grep 'Running' -c)" -lt "$expected_running_pods" ]; do
+    if [ $cnt -gt 30 ]; then
+        echo "volume-data-source-validator pod status:"
+        kubectl describe pods -n "$expected_namespace" -l app=volume-data-source-validator
+        echo >&2 "ERROR: volume-data-source-validator controller not ready after over 5 min"
+        exit 1
+    fi
+    echo "$(date +%H:%M:%S)" "waiting for volume-data-source-validator controller deployment to complete, attempt #$cnt"
+	cnt=$((cnt + 1))
+    sleep 10
+  done
+}
+
 # collect logs and cluster status (like the version of all components, Kubernetes version, test version)
 collect_cluster_info () {
     cat <<EOF
@@ -1260,6 +1397,9 @@ main () {
             install_snapshot_crds
             install_snapshot_controller
 
+            # Install necessary volume populators CRDs and volume data source validator controller
+            install_volumepopulators_crds
+            install_volume_data_source_validator_controller
 
             # Installing the driver might be disabled.
             if ${CSI_PROW_DRIVER_INSTALL} "$images"; then
@@ -1311,6 +1451,10 @@ main () {
             # Install necessary snapshot CRDs and snapshot controller
             install_snapshot_crds
             install_snapshot_controller
+
+            # Install necessary volume populators CRDs and volume data source validator controller
+            install_volumepopulators_crds
+            install_volume_data_source_validator_controller
 
             # Installing the driver might be disabled.
             if ${CSI_PROW_DRIVER_INSTALL} "$images"; then
