@@ -1,6 +1,6 @@
 module github.com/kubernetes-csi/volume-data-source-validator
 
-go 1.18
+go 1.19
 
 require (
 	github.com/kubernetes-csi/csi-lib-utils v0.11.0
