@@ -74,8 +74,8 @@ github.com/json-iterator/go
 # github.com/kubernetes-csi/csi-lib-utils v0.12.0
 ## explicit; go 1.18
 github.com/kubernetes-csi/csi-lib-utils/leaderelection
-# github.com/kubernetes-csi/external-snapshotter/client/v6 v6.1.0
-## explicit; go 1.18
+# github.com/kubernetes-csi/external-snapshotter/client/v6 v6.2.0
+## explicit; go 1.19
 github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1
 # github.com/kubernetes-csi/volume-data-source-validator/client v0.0.0-20221031212045-639c33136c1e => ./client
 ## explicit; go 1.19
