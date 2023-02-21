@@ -8,7 +8,7 @@ require (
 	github.com/kubernetes-csi/volume-data-source-validator/client v0.0.0-20221031212045-639c33136c1e
 	github.com/prometheus/client_golang v1.14.0
 	github.com/prometheus/client_model v0.3.0
-	github.com/prometheus/common v0.39.0
+	github.com/prometheus/common v0.40.0
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.0
 	k8s.io/client-go v0.26.0
