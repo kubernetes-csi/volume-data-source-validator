@@ -3,7 +3,7 @@ module github.com/kubernetes-csi/volume-data-source-validator
 go 1.20
 
 require (
-	github.com/kubernetes-csi/csi-lib-utils v0.12.0
+	github.com/kubernetes-csi/csi-lib-utils v0.14.0
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.2.0
 	github.com/kubernetes-csi/volume-data-source-validator/client v0.0.0-20221031212045-639c33136c1e
 	github.com/prometheus/client_golang v1.14.0
