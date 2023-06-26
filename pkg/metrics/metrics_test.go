@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -105,7 +104,7 @@ func verifyMetric(expected, srvAddr string) error {
 	if rsp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to get response from serve: %s", http.StatusText(rsp.StatusCode))
 	}
-	r, err := ioutil.ReadAll(rsp.Body)
+	r, err := io.ReadAll(rsp.Body)
 	if err != nil {
 		return err
 	}
