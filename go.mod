@@ -3,16 +3,16 @@ module github.com/kubernetes-csi/volume-data-source-validator
 go 1.20
 
 require (
-	github.com/kubernetes-csi/csi-lib-utils v0.12.0
+	github.com/kubernetes-csi/csi-lib-utils v0.15.0
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.2.0
 	github.com/kubernetes-csi/volume-data-source-validator/client v0.0.0-20221031212045-639c33136c1e
 	github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/client_model v0.4.0
 	github.com/prometheus/common v0.44.0
-	k8s.io/api v0.28.0-rc.0
-	k8s.io/apimachinery v0.28.0-rc.0
-	k8s.io/client-go v0.28.0-rc.0
-	k8s.io/component-base v0.28.0-rc.0
+	k8s.io/api v0.28.0
+	k8s.io/apimachinery v0.28.0
+	k8s.io/client-go v0.28.0
+	k8s.io/component-base v0.28.0
 	k8s.io/klog/v2 v2.100.1
 )
 
@@ -45,7 +45,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	golang.org/x/net v0.12.0 // indirect
+	golang.org/x/net v0.13.0 // indirect
 	golang.org/x/oauth2 v0.8.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/term v0.10.0 // indirect
