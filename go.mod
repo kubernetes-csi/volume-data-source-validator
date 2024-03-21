@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/kubernetes-csi/csi-lib-utils v0.15.0
-	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.2.0
+	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/kubernetes-csi/volume-data-source-validator/client v0.0.0-20221031212045-639c33136c1e
 	github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/client_model v0.4.0
@@ -21,7 +21,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
+	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
