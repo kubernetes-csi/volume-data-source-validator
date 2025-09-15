@@ -46,6 +46,7 @@ releases=(
 #  "external-attacher 4.4.1"
 #  "external-provisioner 3.6.1"
 #  "external-snapshotter 6.2.3"
+   "volume-data-source-validator 1.4.0"
 )
 
 function gen_patch_relnotes() {
