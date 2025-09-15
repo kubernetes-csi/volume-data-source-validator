@@ -3,6 +3,7 @@
 approvers:
   - kubernetes-csi-approvers
   - bswartz
+  - sunnylovestiramisu
 
 reviewers:
   - kubernetes-csi-reviewers
