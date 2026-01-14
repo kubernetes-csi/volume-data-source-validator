@@ -25,10 +25,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubernetes-csi/csi-lib-utils/standardflags"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
@@ -39,6 +41,8 @@ const (
 	defaultLeaseDuration = 15 * time.Second
 	defaultRenewDeadline = 10 * time.Second
 	defaultRetryPeriod   = 5 * time.Second
+
+	defaultReleaseOnCancel = false
 
 	DefaultHealthCheckTimeout = 20 * time.Second
 
@@ -66,6 +70,8 @@ type leaderElection struct {
 	// within a timeout period.
 	healthCheck *leaderelection.HealthzAdaptor
 
+	releaseOnCancel bool
+
 	leaseDuration time.Duration
 	renewDeadline time.Duration
 	retryPeriod   time.Duration
@@ -73,6 +79,8 @@ type leaderElection struct {
 	ctx context.Context
 
 	clientset kubernetes.Interface
+
+	labels map[string]string
 }
 
 // NewLeaderElection returns the default & preferred leader election type
@@ -83,13 +91,14 @@ func NewLeaderElection(clientset kubernetes.Interface, lockName string, runFunc 
 // NewLeaderElectionWithLeases returns an implementation of leader election using Leases
 func NewLeaderElectionWithLeases(clientset kubernetes.Interface, lockName string, runFunc func(ctx context.Context)) *leaderElection {
 	return &leaderElection{
-		runFunc:       runFunc,
-		lockName:      lockName,
-		resourceLock:  resourcelock.LeasesResourceLock,
-		leaseDuration: defaultLeaseDuration,
-		renewDeadline: defaultRenewDeadline,
-		retryPeriod:   defaultRetryPeriod,
-		clientset:     clientset,
+		runFunc:         runFunc,
+		lockName:        lockName,
+		resourceLock:    resourcelock.LeasesResourceLock,
+		leaseDuration:   defaultLeaseDuration,
+		renewDeadline:   defaultRenewDeadline,
+		releaseOnCancel: defaultReleaseOnCancel,
+		retryPeriod:     defaultRetryPeriod,
+		clientset:       clientset,
 	}
 }
 
@@ -111,6 +120,15 @@ func (l *leaderElection) WithRenewDeadline(renewDeadline time.Duration) {
 
 func (l *leaderElection) WithRetryPeriod(retryPeriod time.Duration) {
 	l.retryPeriod = retryPeriod
+}
+
+func (l *leaderElection) WithReleaseOnCancel(releaseOnCancel bool) {
+	l.releaseOnCancel = releaseOnCancel
+}
+
+// WithLabels adds labels to the lease object when this instance becomes leader
+func (l *leaderElection) WithLabels(labels map[string]string) {
+	l.labels = labels
 }
 
 // WithContext Add context
@@ -167,17 +185,17 @@ func (l *leaderElection) Run() error {
 		Identity:      sanitizeName(l.identity),
 		EventRecorder: eventRecorder,
 	}
-
-	lock, err := resourcelock.New(l.resourceLock, l.namespace, sanitizeName(l.lockName), l.clientset.CoreV1(), l.clientset.CoordinationV1(), rlConfig)
+	lock, err := resourcelock.NewWithLabels(l.resourceLock, l.namespace, sanitizeName(l.lockName), l.clientset.CoreV1(), l.clientset.CoordinationV1(), rlConfig, l.labels)
 	if err != nil {
 		return err
 	}
 
 	leaderConfig := leaderelection.LeaderElectionConfig{
-		Lock:          lock,
-		LeaseDuration: l.leaseDuration,
-		RenewDeadline: l.renewDeadline,
-		RetryPeriod:   l.retryPeriod,
+		Lock:            lock,
+		LeaseDuration:   l.leaseDuration,
+		RenewDeadline:   l.renewDeadline,
+		RetryPeriod:     l.retryPeriod,
+		ReleaseOnCancel: l.releaseOnCancel,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				logger := klog.FromContext(ctx)
@@ -197,6 +215,58 @@ func (l *leaderElection) Run() error {
 
 	leaderelection.RunOrDie(ctx, leaderConfig)
 	return nil // should never reach here
+}
+
+func RunWithLeaderElection(
+	ctx context.Context,
+	config *rest.Config,
+	opts standardflags.SidecarConfiguration,
+	run func(context.Context),
+	driverName string,
+	mux *http.ServeMux,
+	releaseOnExit bool) {
+
+	logger := klog.FromContext(ctx)
+
+	if !opts.LeaderElection {
+		run(ctx)
+	} else {
+		// Create a new clientset for leader election. When the attacher
+		// gets busy and its client gets throttled, the leader election
+		// can proceed without issues.
+		leClientset, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			logger.Error(err, "Failed to create leaderelection client")
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
+
+		// Name of config map with leader election lock
+		le := NewLeaderElection(leClientset, driverName, run)
+		if opts.HttpEndpoint != "" {
+			le.PrepareHealthCheck(mux, DefaultHealthCheckTimeout)
+		}
+
+		if opts.LeaderElectionNamespace != "" {
+			le.WithNamespace(opts.LeaderElectionNamespace)
+		}
+
+		if opts.LeaderElectionLabels != nil {
+			le.WithLabels(opts.LeaderElectionLabels)
+		}
+
+		le.WithLeaseDuration(opts.LeaderElectionLeaseDuration)
+		le.WithRenewDeadline(opts.LeaderElectionRenewDeadline)
+		le.WithRetryPeriod(opts.LeaderElectionRetryPeriod)
+		if releaseOnExit {
+			le.WithReleaseOnCancel(true)
+			le.WithContext(ctx)
+		}
+
+		if err := le.Run(); err != nil {
+			logger.Error(err, "Failed to initialize leader election")
+			klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+		}
+	}
 }
 
 func defaultLeaderElectionIdentity() (string, error) {
